@@ -9,7 +9,7 @@ const { authenticate } = require('../middleware/auth');
 // @desc    Register a new company
 // @access  Public
 router.post('/register', [
-  body('name')
+  body('companyName')
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Company name must be between 2 and 100 characters'),
@@ -20,23 +20,25 @@ router.post('/register', [
   body('password')
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long'),
-  body('description')
-    .optional()
-    .isLength({ max: 500 })
-    .withMessage('Description cannot exceed 500 characters'),
-  body('website')
-    .optional()
-    .isURL()
-    .withMessage('Please provide a valid website URL'),
-  body('phone')
-    .optional()
-    .matches(/^[\+]?[1-9][\d]{0,15}$/)
-    .withMessage('Please provide a valid phone number')
+  body('confirmPassword')
+    .custom((value, { req }) => {
+      if (value !== req.body.password) {
+        throw new Error('Password confirmation does not match password');
+      }
+      return true;
+    })
 ], async (req, res) => {
   try {
+    // Log what we receive from frontend
+    console.log('=== COMPANY REGISTRATION REQUEST ===');
+    console.log('Request Body:', JSON.stringify(req.body, null, 2));
+    console.log('Request Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('====================================');
+
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('❌ COMPANY VALIDATION ERRORS:', errors.array());
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
@@ -44,17 +46,18 @@ router.post('/register', [
       });
     }
 
-    const { name, email, password, description, website, phone, address } = req.body;
+    const { companyName, email, password } = req.body;
 
     // Check if company already exists
     const existingCompany = await Company.findOne({
       $or: [
         { email: email.toLowerCase() },
-        { name: { $regex: new RegExp(`^${name}$`, 'i') } }
+        { name: { $regex: new RegExp(`^${companyName}$`, 'i') } }
       ]
     });
 
     if (existingCompany) {
+      console.log('❌ ERROR: Company already exists with email or name:', { email, companyName });
       return res.status(400).json({
         success: false,
         message: 'Company with this email or name already exists'
@@ -62,17 +65,16 @@ router.post('/register', [
     }
 
     // Create company
+    console.log('✅ Creating company with data:', { companyName, email: email.toLowerCase() });
+    
     const company = new Company({
-      name,
+      name: companyName,
       email: email.toLowerCase(),
-      password,
-      description,
-      website,
-      phone,
-      address
+      password
     });
 
     await company.save();
+    console.log('✅ Company created successfully:', company._id);
 
     // Generate token
     const token = generateCompanyToken(company._id);
@@ -85,6 +87,13 @@ router.post('/register', [
       sameSite: 'strict'
     });
 
+    console.log('✅ Company registration successful for:', company.name);
+    console.log('=== COMPANY REGISTRATION RESPONSE ===');
+    console.log('Company ID:', company._id);
+    console.log('Company Name:', company.name);
+    console.log('Token generated:', token ? 'Yes' : 'No');
+    console.log('====================================');
+
     res.status(201).json({
       success: true,
       message: 'Company registered successfully',
@@ -94,7 +103,8 @@ router.post('/register', [
       }
     });
   } catch (error) {
-    console.error('Company registration error:', error);
+    console.log('❌ UNEXPECTED ERROR in company registration:', error.message);
+    console.log('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Server error during company registration'

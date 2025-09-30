@@ -6,6 +6,7 @@ const {
   validateUserRegistration, 
   validateUserLogin 
 } = require('../middleware/validation');
+const { body, validationResult } = require('express-validator');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 const router = express.Router();
@@ -13,11 +14,56 @@ const router = express.Router();
 // @desc    Register user
 // @route   POST /api/auth/register
 // @access  Public
-router.post('/register', validateUserRegistration, asyncHandler(async (req, res) => {
-  const { name, email, password, companyId } = req.body;
+router.post('/register', [
+  body('firstName')
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('First name must be between 2 and 50 characters'),
+  body('lastName')
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Last name must be between 2 and 50 characters'),
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email'),
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters long'),
+  body('confirmPassword')
+    .custom((value, { req }) => {
+      if (value !== req.body.password) {
+        throw new Error('Password confirmation does not match password');
+      }
+      return true;
+    }),
+  body('companyId')
+    .isMongoId()
+    .withMessage('Valid company ID is required')
+], asyncHandler(async (req, res) => {
+  try {
+    // Log what we receive from frontend
+    console.log('=== REGISTRATION REQUEST ===');
+    console.log('Request Body:', JSON.stringify(req.body, null, 2));
+    console.log('Request Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('============================');
+
+  // Check for validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    console.log('❌ VALIDATION ERRORS:', errors.array());
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      errors: errors.array()
+    });
+  }
+
+  const { firstName, lastName, email, password, companyId } = req.body;
 
   // Validate company ID
   if (!companyId) {
+    console.log('❌ ERROR: Company ID is required');
     return res.status(400).json({
       success: false,
       message: 'Company ID is required',
@@ -28,6 +74,7 @@ router.post('/register', validateUserRegistration, asyncHandler(async (req, res)
   // Check if company exists and is active
   const company = await Company.findById(companyId);
   if (!company || !company.isActive) {
+    console.log('❌ ERROR: Invalid or inactive company:', companyId);
     return res.status(400).json({
       success: false,
       message: 'Invalid or inactive company',
@@ -38,6 +85,7 @@ router.post('/register', validateUserRegistration, asyncHandler(async (req, res)
   // Check if user already exists in this company
   const existingUser = await User.findOne({ email: email.toLowerCase(), companyId });
   if (existingUser) {
+    console.log('❌ ERROR: User already exists with email:', email, 'in company:', companyId);
     return res.status(400).json({
       success: false,
       message: 'User already exists with this email in this company',
@@ -48,6 +96,7 @@ router.post('/register', validateUserRegistration, asyncHandler(async (req, res)
   // Check company user limit
   const userCount = await User.countDocuments({ companyId, isActive: true });
   if (userCount >= company.settings.maxUsers) {
+    console.log('❌ ERROR: Company user limit reached. Current:', userCount, 'Max:', company.settings.maxUsers);
     return res.status(400).json({
       success: false,
       message: 'Company has reached maximum user limit',
@@ -56,18 +105,33 @@ router.post('/register', validateUserRegistration, asyncHandler(async (req, res)
   }
 
   // Create user
+  console.log('✅ Creating user with data:', {
+    name: `${firstName} ${lastName}`,
+    email: email.toLowerCase(),
+    companyId
+  });
+  
   const user = await User.create({
-    name,
+    name: `${firstName} ${lastName}`,
     email: email.toLowerCase(),
     password,
     companyId
   });
+
+  console.log('✅ User created successfully:', user._id);
 
   // Generate token
   const token = generateToken(user._id, companyId);
 
   // Get user without password
   const userProfile = user.getPublicProfile();
+
+  console.log('✅ Registration successful for user:', user.email);
+  console.log('=== REGISTRATION RESPONSE ===');
+  console.log('User ID:', user._id);
+  console.log('Company ID:', companyId);
+  console.log('Token generated:', token ? 'Yes' : 'No');
+  console.log('============================');
 
   res.status(201).json({
     success: true,
@@ -78,6 +142,16 @@ router.post('/register', validateUserRegistration, asyncHandler(async (req, res)
       token
     }
   });
+
+  } catch (error) {
+    console.log('❌ UNEXPECTED ERROR in registration:', error.message);
+    console.log('Error stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error during registration',
+      error: 'INTERNAL_SERVER_ERROR'
+    });
+  }
 }));
 
 // @desc    Login user
