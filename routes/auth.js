@@ -158,29 +158,29 @@ router.post('/register', [
 // @route   POST /api/auth/login
 // @access  Public
 router.post('/login', validateUserLogin, asyncHandler(async (req, res) => {
-  const { email, password, companyId } = req.body;
+  // Log what we receive from frontend
+  console.log('=== LOGIN REQUEST ===');
+  console.log('Request Body:', JSON.stringify(req.body, null, 2));
+  console.log('Request Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('===================');
 
-  // Validate company ID
-  if (!companyId) {
-    return res.status(400).json({
-      success: false,
-      message: 'Company ID is required',
-      error: 'COMPANY_ID_REQUIRED'
-    });
-  }
+  const { email, password } = req.body;
 
-  // Check for user (include password for comparison)
-  const user = await User.findByEmail(email, companyId);
+  // Check for user by email only (will find user regardless of company)
+  console.log('🔍 Looking for user with email:', email);
+  const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
   if (!user) {
+    console.log('❌ ERROR: User not found with email:', email);
     return res.status(401).json({
       success: false,
-      message: 'Invalid email, password, or company',
+      message: 'Invalid email or password',
       error: 'INVALID_CREDENTIALS'
     });
   }
 
   // Check if user is active
   if (!user.isActive) {
+    console.log('❌ ERROR: User account is deactivated:', user.email);
     return res.status(401).json({
       success: false,
       message: 'Account is deactivated',
@@ -188,8 +188,10 @@ router.post('/login', validateUserLogin, asyncHandler(async (req, res) => {
     });
   }
 
-  // Check if company is active
-  if (!user.companyId || !user.companyId.isActive) {
+  // Get company info and check if it's active
+  const company = await Company.findById(user.companyId);
+  if (!company || !company.isActive) {
+    console.log('❌ ERROR: Company account is deactivated for user:', user.email);
     return res.status(401).json({
       success: false,
       message: 'Company account is deactivated',
@@ -198,11 +200,13 @@ router.post('/login', validateUserLogin, asyncHandler(async (req, res) => {
   }
 
   // Check password
+  console.log('🔍 Checking password for user:', user.email);
   const isPasswordValid = await user.matchPassword(password);
   if (!isPasswordValid) {
+    console.log('❌ ERROR: Invalid password for user:', user.email);
     return res.status(401).json({
       success: false,
-      message: 'Invalid email, password, or company',
+      message: 'Invalid email or password',
       error: 'INVALID_CREDENTIALS'
     });
   }
@@ -212,17 +216,24 @@ router.post('/login', validateUserLogin, asyncHandler(async (req, res) => {
   await user.save();
 
   // Generate token
-  const token = generateToken(user._id, companyId);
+  const token = generateToken(user._id, user.companyId);
 
   // Get user without password
   const userProfile = user.getPublicProfile();
+
+  console.log('✅ Login successful for user:', user.email);
+  console.log('=== LOGIN RESPONSE ===');
+  console.log('User ID:', user._id);
+  console.log('Company ID:', user.companyId);
+  console.log('Token generated:', token ? 'Yes' : 'No');
+  console.log('====================');
 
   res.json({
     success: true,
     message: 'Login successful',
     data: {
       user: userProfile,
-      company: user.companyId.getPublicProfile(),
+      company: company.getPublicProfile(),
       token
     }
   });
