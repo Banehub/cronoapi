@@ -61,7 +61,7 @@ router.post('/register', [
 
   const { firstName, lastName, email, password, companyId } = req.body;
 
-  // Validate company ID
+  
   if (!companyId) {
     console.log('❌ ERROR: Company ID is required');
     return res.status(400).json({
