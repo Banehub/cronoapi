@@ -38,6 +38,11 @@ const messageSchema = new mongoose.Schema({
     trim: true,
     maxlength: [5000, 'Message text cannot exceed 5000 characters']
   },
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    required: [true, 'Company ID is required']
+  },
   senderId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -121,11 +126,20 @@ const messageSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
+messageSchema.index({ companyId: 1 });
 messageSchema.index({ conversationId: 1, createdAt: -1 });
 messageSchema.index({ senderId: 1 });
 messageSchema.index({ messageType: 1 });
 messageSchema.index({ isDeleted: 1 });
 messageSchema.index({ createdAt: -1 });
+
+// Virtual for company
+messageSchema.virtual('company', {
+  ref: 'Company',
+  localField: 'companyId',
+  foreignField: '_id',
+  justOne: true
+});
 
 // Virtual for formatted timestamp
 messageSchema.virtual('formattedTime').get(function() {
@@ -231,11 +245,12 @@ messageSchema.statics.updateConversationLastMessage = async function(conversatio
 };
 
 // Static method to get messages for conversation
-messageSchema.statics.getConversationMessages = function(conversationId, page = 1, limit = 50) {
+messageSchema.statics.getConversationMessages = function(conversationId, companyId, page = 1, limit = 50) {
   const skip = (page - 1) * limit;
   
   return this.find({
     conversationId,
+    companyId,
     isDeleted: false
   })
   .populate('senderId', 'name email avatar')
@@ -248,12 +263,13 @@ messageSchema.statics.getConversationMessages = function(conversationId, page = 
 };
 
 // Static method to search messages
-messageSchema.statics.searchMessages = function(userId, conversationId, searchTerm) {
+messageSchema.statics.searchMessages = function(userId, companyId, conversationId, searchTerm) {
   const query = {
     $or: [
       { conversationId },
       { senderId: userId } // Include messages sent by user in other conversations
     ],
+    companyId: companyId,
     isDeleted: false,
     text: { $regex: searchTerm, $options: 'i' }
   };
@@ -266,9 +282,10 @@ messageSchema.statics.searchMessages = function(userId, conversationId, searchTe
 };
 
 // Static method to get unread message count
-messageSchema.statics.getUnreadCount = function(userId, conversationId) {
+messageSchema.statics.getUnreadCount = function(userId, companyId, conversationId) {
   return this.countDocuments({
     conversationId,
+    companyId,
     senderId: { $ne: userId },
     'readBy.userId': { $ne: userId },
     isDeleted: false
@@ -276,9 +293,10 @@ messageSchema.statics.getUnreadCount = function(userId, conversationId) {
 };
 
 // Static method to mark messages as read
-messageSchema.statics.markMessagesAsRead = function(userId, conversationId) {
+messageSchema.statics.markMessagesAsRead = function(userId, companyId, conversationId) {
   return this.updateMany({
     conversationId,
+    companyId,
     senderId: { $ne: userId },
     'readBy.userId': { $ne: userId },
     isDeleted: false
@@ -289,8 +307,8 @@ messageSchema.statics.markMessagesAsRead = function(userId, conversationId) {
 };
 
 // Static method to get message statistics
-messageSchema.statics.getMessageStats = function(conversationId, startDate, endDate) {
-  const matchQuery = { conversationId, isDeleted: false };
+messageSchema.statics.getMessageStats = function(conversationId, companyId, startDate, endDate) {
+  const matchQuery = { conversationId, companyId, isDeleted: false };
   
   if (startDate || endDate) {
     matchQuery.createdAt = {};

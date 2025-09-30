@@ -10,6 +10,7 @@ const { Server } = require('socket.io');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
+const companyRoutes = require('./routes/companies');
 const ticketRoutes = require('./routes/tickets');
 const conversationRoutes = require('./routes/conversations');
 const messageRoutes = require('./routes/messages');
@@ -55,6 +56,7 @@ app.use('/uploads', express.static('uploads'));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/companies', companyRoutes);
 app.use('/api/tickets', authenticateToken, ticketRoutes);
 app.use('/api/conversations', authenticateToken, conversationRoutes);
 app.use('/api/messages', authenticateToken, messageRoutes);
@@ -72,6 +74,7 @@ app.get('/', (req, res) => {
       environment: process.env.NODE_ENV,
       endpoints: {
         auth: '/api/auth',
+        companies: '/api/companies',
         users: '/api/users',
         tickets: '/api/tickets',
         conversations: '/api/conversations',
@@ -129,7 +132,7 @@ app.set('io', io);
 app.use(errorHandler);
 
 // MongoDB connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/cronoapi', {
+mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://williefbeukes:dAZlNQUZCBcKBi58@cluster0.ra02y7n.mongodb.net/', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })

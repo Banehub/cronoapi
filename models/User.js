@@ -12,10 +12,14 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: [true, 'Email is required'],
-    unique: true,
     lowercase: true,
     trim: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+  },
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    required: [true, 'Company ID is required']
   },
   password: {
     type: String,
@@ -55,9 +59,18 @@ const userSchema = new mongoose.Schema({
 });
 
 // Index for better performance
-userSchema.index({ email: 1 });
+userSchema.index({ email: 1, companyId: 1 }, { unique: true }); // Email unique per company
+userSchema.index({ companyId: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
+
+// Virtual for user's company
+userSchema.virtual('company', {
+  ref: 'Company',
+  localField: 'companyId',
+  foreignField: '_id',
+  justOne: true
+});
 
 // Virtual for user's tickets
 userSchema.virtual('tickets', {
@@ -102,14 +115,17 @@ userSchema.methods.getPublicProfile = function() {
   return userObject;
 };
 
-// Static method to find user by email
-userSchema.statics.findByEmail = function(email) {
-  return this.findOne({ email: email.toLowerCase() }).select('+password');
+// Static method to find user by email and company
+userSchema.statics.findByEmail = function(email, companyId) {
+  return this.findOne({ 
+    email: email.toLowerCase(),
+    companyId: companyId
+  }).select('+password');
 };
 
-// Static method to find active users
-userSchema.statics.findActiveUsers = function() {
-  return this.find({ isActive: true });
+// Static method to find active users by company
+userSchema.statics.findActiveUsers = function(companyId) {
+  return this.find({ isActive: true, companyId: companyId });
 };
 
 // Pre-remove middleware to handle related data

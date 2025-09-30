@@ -23,7 +23,10 @@ router.get('/conversations/:id/messages', authenticateToken, validateObjectId('i
   const limit = parseInt(req.query.limit) || 50;
 
   // Check if conversation exists and user is participant
-  const conversation = await Conversation.findById(req.params.id);
+  const conversation = await Conversation.findOne({ 
+    _id: req.params.id, 
+    companyId: req.user.companyId 
+  });
   if (!conversation) {
     return res.status(404).json({
       success: false,
@@ -40,10 +43,10 @@ router.get('/conversations/:id/messages', authenticateToken, validateObjectId('i
     });
   }
 
-  const messages = await Message.getConversationMessages(req.params.id, page, limit);
+  const messages = await Message.getConversationMessages(req.params.id, req.user.companyId, page, limit);
 
   // Mark messages as read
-  await Message.markMessagesAsRead(req.user._id, req.params.id);
+  await Message.markMessagesAsRead(req.user._id, req.user.companyId, req.params.id);
 
   res.json({
     success: true,
@@ -68,7 +71,10 @@ router.post('/conversations/:id/messages',
     const { text, messageType = 'text', replyTo } = req.body;
 
     // Check if conversation exists and user is participant
-    const conversation = await Conversation.findById(req.params.id);
+    const conversation = await Conversation.findOne({ 
+      _id: req.params.id, 
+      companyId: req.user.companyId 
+    });
     if (!conversation) {
       return res.status(404).json({
         success: false,
@@ -87,7 +93,10 @@ router.post('/conversations/:id/messages',
 
     // Validate replyTo message if provided
     if (replyTo) {
-      const replyMessage = await Message.findById(replyTo);
+      const replyMessage = await Message.findOne({ 
+        _id: replyTo, 
+        companyId: req.user.companyId 
+      });
       if (!replyMessage || replyMessage.conversationId.toString() !== req.params.id) {
         return res.status(400).json({
           success: false,
@@ -100,6 +109,7 @@ router.post('/conversations/:id/messages',
     // Create message
     const messageData = {
       text,
+      companyId: req.user.companyId,
       senderId: req.user._id,
       conversationId: req.params.id,
       messageType,

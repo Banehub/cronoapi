@@ -65,6 +65,11 @@ const ticketSchema = new mongoose.Schema({
     minlength: [10, 'Description must be at least 10 characters long'],
     maxlength: [5000, 'Description cannot exceed 5000 characters']
   },
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    required: [true, 'Company ID is required']
+  },
   priority: {
     type: String,
     enum: ['low', 'medium', 'high', 'urgent'],
@@ -124,6 +129,7 @@ const ticketSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
+ticketSchema.index({ companyId: 1 });
 ticketSchema.index({ userId: 1 });
 ticketSchema.index({ assignedTo: 1 });
 ticketSchema.index({ status: 1 });
@@ -131,6 +137,14 @@ ticketSchema.index({ priority: 1 });
 ticketSchema.index({ category: 1 });
 ticketSchema.index({ createdAt: -1 });
 ticketSchema.index({ subject: 'text', description: 'text' }); // Text search
+
+// Virtual for company
+ticketSchema.virtual('company', {
+  ref: 'Company',
+  localField: 'companyId',
+  foreignField: '_id',
+  justOne: true
+});
 
 // Virtual for ticket number (auto-increment)
 ticketSchema.virtual('ticketNumber').get(function() {
@@ -177,9 +191,10 @@ ticketSchema.methods.addAttachment = function(attachmentData) {
 };
 
 // Static method to search tickets
-ticketSchema.statics.searchTickets = function(query, filters = {}) {
+ticketSchema.statics.searchTickets = function(query, companyId, filters = {}) {
   const searchQuery = {
     $text: { $search: query },
+    companyId: companyId,
     ...filters
   };
   
@@ -190,8 +205,8 @@ ticketSchema.statics.searchTickets = function(query, filters = {}) {
 };
 
 // Static method to get tickets by status
-ticketSchema.statics.getTicketsByStatus = function(status, userId = null) {
-  const query = { status };
+ticketSchema.statics.getTicketsByStatus = function(status, companyId, userId = null) {
+  const query = { status, companyId };
   if (userId) {
     query.$or = [
       { userId },
@@ -206,8 +221,14 @@ ticketSchema.statics.getTicketsByStatus = function(status, userId = null) {
 };
 
 // Static method to get ticket statistics
-ticketSchema.statics.getTicketStats = function(userId = null) {
-  const matchQuery = userId ? { userId } : {};
+ticketSchema.statics.getTicketStats = function(companyId, userId = null) {
+  const matchQuery = { companyId };
+  if (userId) {
+    matchQuery.$or = [
+      { userId },
+      { assignedTo: userId }
+    ];
+  }
   
   return this.aggregate([
     { $match: matchQuery },

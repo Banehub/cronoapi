@@ -1,5 +1,6 @@
 const express = require('express');
 const User = require('../models/User');
+const Company = require('../models/Company');
 const { generateToken, authenticateToken } = require('../middleware/auth');
 const { 
   validateUserRegistration, 
@@ -13,27 +14,57 @@ const router = express.Router();
 // @route   POST /api/auth/register
 // @access  Public
 router.post('/register', validateUserRegistration, asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, companyId } = req.body;
 
-  // Check if user already exists
-  const existingUser = await User.findOne({ email });
+  // Validate company ID
+  if (!companyId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Company ID is required',
+      error: 'COMPANY_ID_REQUIRED'
+    });
+  }
+
+  // Check if company exists and is active
+  const company = await Company.findById(companyId);
+  if (!company || !company.isActive) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or inactive company',
+      error: 'INVALID_COMPANY'
+    });
+  }
+
+  // Check if user already exists in this company
+  const existingUser = await User.findOne({ email: email.toLowerCase(), companyId });
   if (existingUser) {
     return res.status(400).json({
       success: false,
-      message: 'User already exists with this email',
+      message: 'User already exists with this email in this company',
       error: 'USER_EXISTS'
+    });
+  }
+
+  // Check company user limit
+  const userCount = await User.countDocuments({ companyId, isActive: true });
+  if (userCount >= company.settings.maxUsers) {
+    return res.status(400).json({
+      success: false,
+      message: 'Company has reached maximum user limit',
+      error: 'USER_LIMIT_REACHED'
     });
   }
 
   // Create user
   const user = await User.create({
     name,
-    email,
-    password
+    email: email.toLowerCase(),
+    password,
+    companyId
   });
 
   // Generate token
-  const token = generateToken(user._id);
+  const token = generateToken(user._id, companyId);
 
   // Get user without password
   const userProfile = user.getPublicProfile();
@@ -43,6 +74,7 @@ router.post('/register', validateUserRegistration, asyncHandler(async (req, res)
     message: 'User registered successfully',
     data: {
       user: userProfile,
+      company: company.getPublicProfile(),
       token
     }
   });
@@ -52,14 +84,23 @@ router.post('/register', validateUserRegistration, asyncHandler(async (req, res)
 // @route   POST /api/auth/login
 // @access  Public
 router.post('/login', validateUserLogin, asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, companyId } = req.body;
+
+  // Validate company ID
+  if (!companyId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Company ID is required',
+      error: 'COMPANY_ID_REQUIRED'
+    });
+  }
 
   // Check for user (include password for comparison)
-  const user = await User.findByEmail(email);
+  const user = await User.findByEmail(email, companyId);
   if (!user) {
     return res.status(401).json({
       success: false,
-      message: 'Invalid email or password',
+      message: 'Invalid email, password, or company',
       error: 'INVALID_CREDENTIALS'
     });
   }
@@ -73,12 +114,21 @@ router.post('/login', validateUserLogin, asyncHandler(async (req, res) => {
     });
   }
 
+  // Check if company is active
+  if (!user.companyId || !user.companyId.isActive) {
+    return res.status(401).json({
+      success: false,
+      message: 'Company account is deactivated',
+      error: 'COMPANY_DEACTIVATED'
+    });
+  }
+
   // Check password
   const isPasswordValid = await user.matchPassword(password);
   if (!isPasswordValid) {
     return res.status(401).json({
       success: false,
-      message: 'Invalid email or password',
+      message: 'Invalid email, password, or company',
       error: 'INVALID_CREDENTIALS'
     });
   }
@@ -88,7 +138,7 @@ router.post('/login', validateUserLogin, asyncHandler(async (req, res) => {
   await user.save();
 
   // Generate token
-  const token = generateToken(user._id);
+  const token = generateToken(user._id, companyId);
 
   // Get user without password
   const userProfile = user.getPublicProfile();
@@ -98,6 +148,7 @@ router.post('/login', validateUserLogin, asyncHandler(async (req, res) => {
     message: 'Login successful',
     data: {
       user: userProfile,
+      company: user.companyId.getPublicProfile(),
       token
     }
   });
@@ -108,6 +159,7 @@ router.post('/login', validateUserLogin, asyncHandler(async (req, res) => {
 // @access  Private
 router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id)
+    .populate('companyId', 'name slug description logo')
     .populate('tickets')
     .populate('conversations');
 
@@ -123,7 +175,8 @@ router.get('/me', authenticateToken, asyncHandler(async (req, res) => {
     success: true,
     message: 'User profile retrieved successfully',
     data: {
-      user: user.getPublicProfile()
+      user: user.getPublicProfile(),
+      company: user.companyId.getPublicProfile()
     }
   });
 }));
@@ -149,7 +202,7 @@ router.post('/logout', authenticateToken, asyncHandler(async (req, res) => {
 // @access  Private
 router.post('/refresh', authenticateToken, asyncHandler(async (req, res) => {
   // Generate new token
-  const token = generateToken(req.user._id);
+  const token = generateToken(req.user._id, req.user.companyId);
 
   res.json({
     success: true,
@@ -169,6 +222,7 @@ router.post('/verify', authenticateToken, asyncHandler(async (req, res) => {
     message: 'Token is valid',
     data: {
       user: req.user.getPublicProfile(),
+      company: req.company.getPublicProfile(),
       valid: true
     }
   });

@@ -2,8 +2,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 // Generate JWT token
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, {
+const generateToken = (userId, companyId) => {
+  return jwt.sign({ userId, companyId }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE || '7d'
   });
 };
@@ -26,7 +26,7 @@ const authenticateToken = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     // Get user from token
-    const user = await User.findById(decoded.userId).select('-password');
+    const user = await User.findById(decoded.userId).select('-password').populate('companyId', 'name slug isActive');
     
     if (!user) {
       return res.status(401).json({
@@ -44,8 +44,18 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    // Add user to request object
+    // Check if company is active
+    if (!user.companyId || !user.companyId.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'Company account is deactivated.',
+        error: 'COMPANY_DEACTIVATED'
+      });
+    }
+
+    // Add user and company to request object
     req.user = user;
+    req.company = user.companyId;
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
@@ -81,10 +91,11 @@ const optionalAuth = async (req, res, next) => {
 
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.userId).select('-password');
+      const user = await User.findById(decoded.userId).select('-password').populate('companyId', 'name slug isActive');
       
-      if (user && user.isActive) {
+      if (user && user.isActive && user.companyId && user.companyId.isActive) {
         req.user = user;
+        req.company = user.companyId;
       }
     }
     

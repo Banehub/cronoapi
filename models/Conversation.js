@@ -8,6 +8,11 @@ const conversationSchema = new mongoose.Schema({
     minlength: [1, 'Title must be at least 1 character long'],
     maxlength: [100, 'Title cannot exceed 100 characters']
   },
+  companyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    required: [true, 'Company ID is required']
+  },
   participants: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -69,11 +74,20 @@ const conversationSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
+conversationSchema.index({ companyId: 1 });
 conversationSchema.index({ participants: 1 });
 conversationSchema.index({ createdBy: 1 });
 conversationSchema.index({ lastMessageAt: -1 });
 conversationSchema.index({ isActive: 1 });
 conversationSchema.index({ isGroup: 1 });
+
+// Virtual for company
+conversationSchema.virtual('company', {
+  ref: 'Company',
+  localField: 'companyId',
+  foreignField: '_id',
+  justOne: true
+});
 
 // Virtual for message count
 conversationSchema.virtual('messageCount', {
@@ -145,11 +159,12 @@ conversationSchema.methods.updateLastMessage = function(messageText, timestamp =
 };
 
 // Static method to find conversations for user
-conversationSchema.statics.findUserConversations = function(userId, page = 1, limit = 20) {
+conversationSchema.statics.findUserConversations = function(userId, companyId, page = 1, limit = 20) {
   const skip = (page - 1) * limit;
   
   return this.find({
     participants: userId,
+    companyId: companyId,
     isActive: true
   })
   .populate('participants', 'name email avatar')
@@ -160,10 +175,11 @@ conversationSchema.statics.findUserConversations = function(userId, page = 1, li
 };
 
 // Static method to find or create direct conversation
-conversationSchema.statics.findOrCreateDirectConversation = async function(user1Id, user2Id) {
+conversationSchema.statics.findOrCreateDirectConversation = async function(user1Id, user2Id, companyId) {
   // Look for existing direct conversation between two users
   let conversation = await this.findOne({
     participants: { $all: [user1Id, user2Id] },
+    companyId: companyId,
     isGroup: false,
     isActive: true
   })
@@ -174,6 +190,7 @@ conversationSchema.statics.findOrCreateDirectConversation = async function(user1
     // Create new direct conversation
     conversation = new this({
       title: 'Direct Message',
+      companyId: companyId,
       participants: [user1Id, user2Id],
       createdBy: user1Id,
       isGroup: false
@@ -188,9 +205,10 @@ conversationSchema.statics.findOrCreateDirectConversation = async function(user1
 };
 
 // Static method to search conversations
-conversationSchema.statics.searchConversations = function(userId, searchTerm) {
+conversationSchema.statics.searchConversations = function(userId, companyId, searchTerm) {
   return this.find({
     participants: userId,
+    companyId: companyId,
     isActive: true,
     $or: [
       { title: { $regex: searchTerm, $options: 'i' } },
@@ -203,9 +221,9 @@ conversationSchema.statics.searchConversations = function(userId, searchTerm) {
 };
 
 // Static method to get conversation statistics
-conversationSchema.statics.getConversationStats = function(userId) {
+conversationSchema.statics.getConversationStats = function(userId, companyId) {
   return this.aggregate([
-    { $match: { participants: userId, isActive: true } },
+    { $match: { participants: userId, companyId: companyId, isActive: true } },
     {
       $group: {
         _id: '$isGroup',

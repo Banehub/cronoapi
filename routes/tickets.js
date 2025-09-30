@@ -28,7 +28,7 @@ router.get('/', authenticateToken, validatePagination, validateSearch, asyncHand
   const category = req.query.category;
   const assignedTo = req.query.assignedTo;
 
-  let query = {};
+  let query = { companyId: req.user.companyId }; // Always filter by company
   let sort = { createdAt: -1 };
 
   // Build query based on user role
@@ -43,7 +43,7 @@ router.get('/', authenticateToken, validatePagination, validateSearch, asyncHand
       { userId: req.user._id } // Their own tickets
     ];
   }
-  // Admin can see all tickets (no additional query filters)
+  // Admin can see all tickets within their company (no additional query filters)
 
   // Apply filters
   if (status) query.status = status;
@@ -99,7 +99,10 @@ router.get('/', authenticateToken, validatePagination, validateSearch, asyncHand
 // @route   GET /api/tickets/:id
 // @access  Private
 router.get('/:id', authenticateToken, validateObjectId('id'), asyncHandler(async (req, res) => {
-  const ticket = await Ticket.findById(req.params.id)
+  const ticket = await Ticket.findOne({ 
+    _id: req.params.id, 
+    companyId: req.user.companyId 
+  })
     .populate('userId', 'name email avatar')
     .populate('assignedTo', 'name email avatar')
     .populate('comments.author', 'name email avatar');
@@ -136,7 +139,8 @@ router.get('/:id', authenticateToken, validateObjectId('id'), asyncHandler(async
 router.post('/', authenticateToken, validateTicketCreation, asyncHandler(async (req, res) => {
   const ticketData = {
     ...req.body,
-    userId: req.user._id
+    userId: req.user._id,
+    companyId: req.user.companyId
   };
 
   const ticket = await Ticket.create(ticketData);
@@ -158,7 +162,10 @@ router.post('/', authenticateToken, validateTicketCreation, asyncHandler(async (
 // @route   PUT /api/tickets/:id
 // @access  Private
 router.put('/:id', authenticateToken, validateObjectId('id'), validateTicketUpdate, asyncHandler(async (req, res) => {
-  const ticket = await Ticket.findById(req.params.id);
+  const ticket = await Ticket.findOne({ 
+    _id: req.params.id, 
+    companyId: req.user.companyId 
+  });
 
   if (!ticket) {
     return res.status(404).json({
@@ -208,7 +215,10 @@ router.put('/:id', authenticateToken, validateObjectId('id'), validateTicketUpda
 // @route   DELETE /api/tickets/:id
 // @access  Private (Admin only)
 router.delete('/:id', authenticateToken, adminOnly, validateObjectId('id'), asyncHandler(async (req, res) => {
-  const ticket = await Ticket.findById(req.params.id);
+  const ticket = await Ticket.findOne({ 
+    _id: req.params.id, 
+    companyId: req.user.companyId 
+  });
 
   if (!ticket) {
     return res.status(404).json({
@@ -218,7 +228,10 @@ router.delete('/:id', authenticateToken, adminOnly, validateObjectId('id'), asyn
     });
   }
 
-  await Ticket.findByIdAndDelete(req.params.id);
+  await Ticket.findOneAndDelete({ 
+    _id: req.params.id, 
+    companyId: req.user.companyId 
+  });
 
   // Log the ticket deletion in the terminal [[memory:669458]]
   console.log(`Ticket deleted: ${ticket.ticketNumber} by ${req.user.name} (${req.user.email})`);
@@ -234,7 +247,10 @@ router.delete('/:id', authenticateToken, adminOnly, validateObjectId('id'), asyn
 // @route   POST /api/tickets/:id/comments
 // @access  Private
 router.post('/:id/comments', authenticateToken, validateObjectId('id'), validateTicketComment, asyncHandler(async (req, res) => {
-  const ticket = await Ticket.findById(req.params.id);
+  const ticket = await Ticket.findOne({ 
+    _id: req.params.id, 
+    companyId: req.user.companyId 
+  });
 
   if (!ticket) {
     return res.status(404).json({
@@ -394,7 +410,7 @@ router.put('/:id/assign', authenticateToken, supportOrAdmin, validateObjectId('i
 // @route   GET /api/tickets/stats
 // @access  Private
 router.get('/stats', authenticateToken, asyncHandler(async (req, res) => {
-  let matchQuery = {};
+  let matchQuery = { companyId: req.user.companyId };
 
   // Filter by user role
   if (req.user.role === 'user') {

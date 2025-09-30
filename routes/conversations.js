@@ -23,7 +23,7 @@ router.get('/', authenticateToken, validatePagination, validateSearch, asyncHand
   const search = req.query.q;
 
   if (search) {
-    const conversations = await Conversation.searchConversations(req.user._id, search);
+    const conversations = await Conversation.searchConversations(req.user._id, req.user.companyId, search);
     return res.json({
       success: true,
       message: 'Conversations search completed',
@@ -34,7 +34,7 @@ router.get('/', authenticateToken, validatePagination, validateSearch, asyncHand
     });
   }
 
-  const conversations = await Conversation.findUserConversations(req.user._id, page, limit);
+  const conversations = await Conversation.findUserConversations(req.user._id, req.user.companyId, page, limit);
 
   res.json({
     success: true,
@@ -49,7 +49,10 @@ router.get('/', authenticateToken, validatePagination, validateSearch, asyncHand
 // @route   GET /api/conversations/:id
 // @access  Private
 router.get('/:id', authenticateToken, validateObjectId('id'), asyncHandler(async (req, res) => {
-  const conversation = await Conversation.findById(req.params.id)
+  const conversation = await Conversation.findOne({ 
+    _id: req.params.id, 
+    companyId: req.user.companyId 
+  })
     .populate('participants', 'name email avatar')
     .populate('createdBy', 'name email avatar');
 
@@ -90,9 +93,10 @@ router.post('/', authenticateToken, validateConversationCreation, asyncHandler(a
     participants.push(req.user._id.toString());
   }
 
-  // Validate all participants exist and are active
+  // Validate all participants exist and are active within the same company
   const participantUsers = await User.find({
     _id: { $in: participants },
+    companyId: req.user.companyId,
     isActive: true
   });
 
@@ -106,6 +110,7 @@ router.post('/', authenticateToken, validateConversationCreation, asyncHandler(a
 
   const conversation = new Conversation({
     title,
+    companyId: req.user.companyId,
     participants,
     createdBy: req.user._id,
     description,
@@ -142,9 +147,13 @@ router.post('/direct', authenticateToken, asyncHandler(async (req, res) => {
     });
   }
 
-  // Validate participant exists and is active
-  const participant = await User.findById(participantId);
-  if (!participant || !participant.isActive) {
+  // Validate participant exists and is active within the same company
+  const participant = await User.findOne({ 
+    _id: participantId, 
+    companyId: req.user.companyId, 
+    isActive: true 
+  });
+  if (!participant) {
     return res.status(404).json({
       success: false,
       message: 'Participant not found or inactive',
@@ -163,7 +172,8 @@ router.post('/direct', authenticateToken, asyncHandler(async (req, res) => {
 
   const conversation = await Conversation.findOrCreateDirectConversation(
     req.user._id,
-    participantId
+    participantId,
+    req.user.companyId
   );
 
   // Log the direct conversation access in the terminal [[memory:669458]]
