@@ -2,12 +2,19 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+    // Add database name to the connection string
+    const mongoURI = process.env.MONGODB_URI.endsWith('/') 
+      ? `${process.env.MONGODB_URI}CronoAPI`
+      : `${process.env.MONGODB_URI}/CronoAPI`;
+    
+    const conn = await mongoose.connect(mongoURI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
 
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+    console.log(`Database Name: ${conn.connection.name}`);
+    console.log(`Database URL: ${conn.connection.host}/${conn.connection.name}`);
     
     // Handle connection events
     mongoose.connection.on('error', (err) => {

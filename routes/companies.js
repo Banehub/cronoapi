@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 const Company = require('../models/Company');
 const { authenticateCompany, generateCompanyToken, checkUserLimit } = require('../middleware/companyAuth');
 const { authenticate } = require('../middleware/auth');
@@ -373,6 +374,12 @@ router.post('/logout', authenticateCompany, (req, res) => {
 router.get('/list', async (req, res) => {
   try {
     console.log('🔍 Listing all companies in database...');
+    console.log('🔍 Database connection info:', {
+      host: mongoose.connection.host,
+      name: mongoose.connection.name,
+      readyState: mongoose.connection.readyState
+    });
+    
     const companies = await Company.find({});
     console.log('🔍 Found companies:', companies.length);
     console.log('🔍 Companies data:', companies.map(c => ({
@@ -386,6 +393,11 @@ router.get('/list', async (req, res) => {
       success: true,
       message: `Found ${companies.length} companies`,
       data: {
+        database: {
+          host: mongoose.connection.host,
+          name: mongoose.connection.name,
+          readyState: mongoose.connection.readyState
+        },
         companies: companies.map(c => ({
           id: c._id,
           name: c.name,
