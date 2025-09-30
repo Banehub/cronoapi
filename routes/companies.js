@@ -49,6 +49,8 @@ router.post('/register', [
     const { companyName, email, password } = req.body;
 
     // Check if company already exists
+    console.log('🔍 Checking for existing company with:', { email: email.toLowerCase(), companyName });
+    
     const existingCompany = await Company.findOne({
       $or: [
         { email: email.toLowerCase() },
@@ -56,8 +58,15 @@ router.post('/register', [
       ]
     });
 
+    console.log('🔍 Database query result:', existingCompany);
+
     if (existingCompany) {
       console.log('❌ ERROR: Company already exists with email or name:', { email, companyName });
+      console.log('❌ Found existing company:', {
+        id: existingCompany._id,
+        name: existingCompany.name,
+        email: existingCompany.email
+      });
       return res.status(400).json({
         success: false,
         message: 'Company with this email or name already exists'
@@ -356,6 +365,44 @@ router.post('/logout', authenticateCompany, (req, res) => {
     success: true,
     message: 'Logout successful'
   });
+});
+
+// @route   GET /api/companies/list
+// @desc    List all companies (for debugging)
+// @access  Public (temporary for debugging)
+router.get('/list', async (req, res) => {
+  try {
+    console.log('🔍 Listing all companies in database...');
+    const companies = await Company.find({});
+    console.log('🔍 Found companies:', companies.length);
+    console.log('🔍 Companies data:', companies.map(c => ({
+      id: c._id,
+      name: c.name,
+      email: c.email,
+      isActive: c.isActive
+    })));
+    
+    res.json({
+      success: true,
+      message: `Found ${companies.length} companies`,
+      data: {
+        companies: companies.map(c => ({
+          id: c._id,
+          name: c.name,
+          email: c.email,
+          isActive: c.isActive,
+          createdAt: c.createdAt
+        }))
+      }
+    });
+  } catch (error) {
+    console.log('❌ ERROR listing companies:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error listing companies',
+      error: error.message
+    });
+  }
 });
 
 module.exports = router;
