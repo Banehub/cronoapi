@@ -15,6 +15,7 @@ const ticketRoutes = require('./routes/tickets');
 const conversationRoutes = require('./routes/conversations');
 const messageRoutes = require('./routes/messages');
 const userRoutes = require('./routes/users');
+const folderRoutes = require('./routes/folders');
 
 const { errorHandler } = require('./middleware/errorHandler');
 const { authenticateToken } = require('./middleware/auth');
@@ -61,6 +62,7 @@ app.use('/api/tickets', authenticateToken, ticketRoutes);
 app.use('/api/conversations', authenticateToken, conversationRoutes);
 app.use('/api/messages', authenticateToken, messageRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
+app.use('/api/folders', authenticateToken, folderRoutes);
 
 // Welcome endpoint
 app.get('/', (req, res) => {
@@ -79,6 +81,7 @@ app.get('/', (req, res) => {
         tickets: '/api/tickets',
         conversations: '/api/conversations',
         messages: '/api/messages',
+        folders: '/api/folders',
         health: '/api/health'
       },
       documentation: 'See README.md for API documentation'

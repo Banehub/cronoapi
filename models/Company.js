@@ -191,6 +191,20 @@ companySchema.pre('save', function(next) {
   next();
 });
 
+// Post-save middleware to create folder structure
+companySchema.post('save', async function(doc, next) {
+  if (doc.isNew) {
+    try {
+      const FolderService = require('../services/folderService');
+      await FolderService.initializeCompanyFolders(doc._id, doc.name);
+    } catch (error) {
+      console.error('Error creating company folder structure:', error);
+      // Don't fail the save operation if folder creation fails
+    }
+  }
+  next();
+});
+
 // Hash password before saving
 companySchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();

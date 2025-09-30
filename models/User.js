@@ -128,6 +128,20 @@ userSchema.statics.findActiveUsers = function(companyId) {
   return this.find({ isActive: true, companyId: companyId });
 };
 
+// Post-save middleware to create user folder
+userSchema.post('save', async function(doc, next) {
+  if (doc.isNew) {
+    try {
+      const FolderService = require('../services/folderService');
+      await FolderService.createUserFolder(doc.companyId, doc._id, doc.name);
+    } catch (error) {
+      console.error('Error creating user folder:', error);
+      // Don't fail the save operation if folder creation fails
+    }
+  }
+  next();
+});
+
 // Pre-remove middleware to handle related data
 userSchema.pre('remove', async function(next) {
   try {

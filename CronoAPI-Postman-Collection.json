@@ -1,0 +1,1104 @@
+{
+  "info": {
+    "name": "CronoAPI - Multi-Tenant Ticket System",
+    "description": "Complete API collection for CronoAPI with multi-tenant support",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "companyToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "companyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🏢 Company Management",
+      "item": [
+        {
+          "name": "Register Company",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Corporation\",\n  \"email\": \"admin@acme.com\",\n  \"password\": \"password123\",\n  \"description\": \"A leading technology company\",\n  \"website\": \"https://acme.com\",\n  \"phone\": \"+1234567890\",\n  \"address\": {\n    \"street\": \"123 Tech Street\",\n    \"city\": \"San Francisco\",\n    \"state\": \"CA\",\n    \"country\": \"USA\",\n    \"zipCode\": \"94105\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/companies/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "companies", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('companyToken', response.data.token);",
+                  "    pm.collectionVariables.set('companyId', response.data.company._id);",
+                  "    console.log('Company registered successfully!');",
+                  "    console.log('Company ID:', response.data.company._id);",
+                  "    console.log('Company Token:', response.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Company",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@acme.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/companies/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "companies", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('companyToken', response.data.token);",
+                  "    pm.collectionVariables.set('companyId', response.data.company._id);",
+                  "    console.log('Company logged in successfully!');",
+                  "    console.log('Company ID:', response.data.company._id);",
+                  "    console.log('Company Token:', response.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Company Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/companies/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "companies", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update Company Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated company description\",\n  \"website\": \"https://updated-acme.com\",\n  \"phone\": \"+1987654321\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/companies/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "companies", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Get Company Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/companies/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "companies", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Logout Company",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{companyToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/companies/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "companies", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 User Management",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@acme.com\",\n  \"password\": \"password123\",\n  \"companyId\": \"{{companyId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('userToken', response.data.token);",
+                  "    pm.collectionVariables.set('userId', response.data.user._id);",
+                  "    console.log('User registered successfully!');",
+                  "    console.log('User ID:', response.data.user._id);",
+                  "    console.log('User Token:', response.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@acme.com\",\n  \"password\": \"password123\",\n  \"companyId\": \"{{companyId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('userToken', response.data.token);",
+                  "    pm.collectionVariables.set('userId', response.data.user._id);",
+                  "    console.log('User logged in successfully!');",
+                  "    console.log('User ID:', response.data.user._id);",
+                  "    console.log('User Token:', response.data.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Verify Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "verify"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Logout User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎫 Ticket Management",
+      "item": [
+        {
+          "name": "Create Ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subject\": \"Login Issue\",\n  \"description\": \"I am unable to login to the system. Getting an error message.\",\n  \"priority\": \"high\",\n  \"category\": \"technical\",\n  \"tags\": [\"login\", \"authentication\", \"urgent\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets"]
+            }
+          }
+        },
+        {
+          "name": "Get All Tickets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Ticket by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/:ticketId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", ":ticketId"],
+              "variable": [
+                {
+                  "key": "ticketId",
+                  "value": "REPLACE_WITH_ACTUAL_TICKET_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Ticket",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in-progress\",\n  \"priority\": \"urgent\",\n  \"assignedTo\": \"{{userId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/:ticketId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", ":ticketId"],
+              "variable": [
+                {
+                  "key": "ticketId",
+                  "value": "REPLACE_WITH_ACTUAL_TICKET_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Comment to Ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"I have investigated the issue and found the root cause. Working on a fix now.\",\n  \"isInternal\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/:ticketId/comments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", ":ticketId", "comments"],
+              "variable": [
+                {
+                  "key": "ticketId",
+                  "value": "REPLACE_WITH_ACTUAL_TICKET_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Assign Ticket",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignedTo\": \"{{userId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/:ticketId/assign",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", ":ticketId", "assign"],
+              "variable": [
+                {
+                  "key": "ticketId",
+                  "value": "REPLACE_WITH_ACTUAL_TICKET_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Ticket Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Search Tickets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tickets?q=login&status=open&priority=high",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tickets"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "login"
+                },
+                {
+                  "key": "status",
+                  "value": "open"
+                },
+                {
+                  "key": "priority",
+                  "value": "high"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💬 Conversation Management",
+      "item": [
+        {
+          "name": "Create Conversation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Project Discussion\",\n  \"participants\": [\"{{userId}}\"],\n  \"description\": \"Discussion about the new project requirements\",\n  \"isGroup\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "conversations"]
+            }
+          }
+        },
+        {
+          "name": "Get All Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "conversations"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Conversation by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations/:conversationId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "conversations", ":conversationId"],
+              "variable": [
+                {
+                  "key": "conversationId",
+                  "value": "REPLACE_WITH_ACTUAL_CONVERSATION_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Direct Conversation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"participantId\": \"REPLACE_WITH_ANOTHER_USER_ID\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations/direct",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "conversations", "direct"]
+            }
+          }
+        },
+        {
+          "name": "Add Participant to Conversation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"REPLACE_WITH_ANOTHER_USER_ID\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations/:conversationId/participants",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "conversations", ":conversationId", "participants"],
+              "variable": [
+                {
+                  "key": "conversationId",
+                  "value": "REPLACE_WITH_ACTUAL_CONVERSATION_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/conversations?q=project",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "conversations"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "project"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📨 Message Management",
+      "item": [
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Hello! How are you doing today?\",\n  \"messageType\": \"text\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/messages/conversations/:conversationId/messages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "messages", "conversations", ":conversationId", "messages"],
+              "variable": [
+                {
+                  "key": "conversationId",
+                  "value": "REPLACE_WITH_ACTUAL_CONVERSATION_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Messages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/messages/conversations/:conversationId/messages?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "messages", "conversations", ":conversationId", "messages"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "conversationId",
+                  "value": "REPLACE_WITH_ACTUAL_CONVERSATION_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send Reply Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"I'm doing great, thanks for asking!\",\n  \"messageType\": \"text\",\n  \"replyTo\": \"REPLACE_WITH_MESSAGE_ID_TO_REPLY_TO\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/messages/conversations/:conversationId/messages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "messages", "conversations", ":conversationId", "messages"],
+              "variable": [
+                {
+                  "key": "conversationId",
+                  "value": "REPLACE_WITH_ACTUAL_CONVERSATION_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Reaction to Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emoji\": \"👍\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/messages/:messageId/reactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "messages", ":messageId", "reactions"],
+              "variable": [
+                {
+                  "key": "messageId",
+                  "value": "REPLACE_WITH_ACTUAL_MESSAGE_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Messages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/messages/search?q=hello&conversationId=:conversationId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "messages", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "hello"
+                },
+                {
+                  "key": "conversationId",
+                  "value": ":conversationId"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "conversationId",
+                  "value": "REPLACE_WITH_ACTUAL_CONVERSATION_ID"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📁 Folder Management",
+      "item": [
+        {
+          "name": "Get Folder Tree",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/folders/tree",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "folders", "tree"]
+            }
+          }
+        },
+        {
+          "name": "Get Folder Statistics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/folders/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "folders", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Get Folder Contents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/folders/:folderId/contents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "folders", ":folderId", "contents"],
+              "variable": [
+                {
+                  "key": "folderId",
+                  "value": "REPLACE_WITH_ACTUAL_FOLDER_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Custom Folder",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Custom Folder\",\n  \"parentFolderId\": \"REPLACE_WITH_PARENT_FOLDER_ID\",\n  \"description\": \"A custom folder for organizing data\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/folders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "folders"]
+            }
+          }
+        },
+        {
+          "name": "Rename Folder",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Renamed Folder\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/folders/:folderId/rename",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "folders", ":folderId", "rename"],
+              "variable": [
+                {
+                  "key": "folderId",
+                  "value": "REPLACE_WITH_ACTUAL_FOLDER_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Move Folder",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newParentFolderId\": \"REPLACE_WITH_NEW_PARENT_FOLDER_ID\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/folders/:folderId/move",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "folders", ":folderId", "move"],
+              "variable": [
+                {
+                  "key": "folderId",
+                  "value": "REPLACE_WITH_ACTUAL_FOLDER_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Folder",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/folders/:folderId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "folders", ":folderId"],
+              "variable": [
+                {
+                  "key": "folderId",
+                  "value": "REPLACE_WITH_ACTUAL_FOLDER_ID"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Folder by Path",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/folders/path/Test Company Folder Demo/Users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "folders", "path", "Test Company Folder Demo", "Users"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔍 System & Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            }
+          }
+        },
+        {
+          "name": "API Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

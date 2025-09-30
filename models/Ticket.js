@@ -174,6 +174,20 @@ ticketSchema.pre('save', function(next) {
   next();
 });
 
+// Post-save middleware to create ticket folder
+ticketSchema.post('save', async function(doc, next) {
+  if (doc.isNew) {
+    try {
+      const FolderService = require('../services/folderService');
+      await FolderService.createTicketFolder(doc.companyId, doc._id, doc.subject);
+    } catch (error) {
+      console.error('Error creating ticket folder:', error);
+      // Don't fail the save operation if folder creation fails
+    }
+  }
+  next();
+});
+
 // Instance method to add comment
 ticketSchema.methods.addComment = function(text, authorId, isInternal = false) {
   this.comments.push({

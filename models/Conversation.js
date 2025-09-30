@@ -125,6 +125,20 @@ conversationSchema.pre('save', function(next) {
   next();
 });
 
+// Post-save middleware to create conversation folder
+conversationSchema.post('save', async function(doc, next) {
+  if (doc.isNew) {
+    try {
+      const FolderService = require('../services/folderService');
+      await FolderService.createConversationFolder(doc.companyId, doc._id, doc.title);
+    } catch (error) {
+      console.error('Error creating conversation folder:', error);
+      // Don't fail the save operation if folder creation fails
+    }
+  }
+  next();
+});
+
 // Instance method to add participant
 conversationSchema.methods.addParticipant = function(userId) {
   if (!this.participants.includes(userId)) {
