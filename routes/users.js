@@ -18,12 +18,21 @@ const router = express.Router();
 // @route   GET /api/users
 // @access  Private (Admin/Support)
 router.get('/', authenticateToken, supportOrAdmin, validatePagination, validateSearch, asyncHandler(async (req, res) => {
+  console.log('=== GET USERS REQUEST ===');
+  console.log('User ID:', req.user._id);
+  console.log('Company ID:', req.user.companyId);
+  console.log('========================');
+
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const search = req.query.q;
   const skip = (page - 1) * limit;
 
-  let query = { isActive: true };
+  // IMPORTANT: Filter by company - only show users in the same company
+  let query = { 
+    isActive: true,
+    companyId: req.user.companyId  // Only users in the same company
+  };
   
   if (search) {
     query.$or = [
@@ -39,6 +48,9 @@ router.get('/', authenticateToken, supportOrAdmin, validatePagination, validateS
     .limit(limit);
 
   const total = await User.countDocuments(query);
+
+  console.log('✅ Found users in company:', users.length);
+  console.log('Users:', users.map(u => ({ name: u.name, email: u.email, companyId: u.companyId })));
 
   res.json({
     success: true,

@@ -233,19 +233,29 @@ router.get('/online-users', authenticateToken, async (req, res) => {
     .select('name email avatar role lastLogin')
     .sort('name');
 
-    console.log('✅ Found users:', users.length);
+    console.log('✅ Found users in company:', users.length);
+    console.log('Company ID:', req.user.companyId);
+
+    // Get company info
+    const Company = require('../models/Company');
+    const company = await Company.findById(req.user.companyId);
 
     res.json({
       success: true,
       message: 'Online users retrieved successfully',
       data: {
+        company: {
+          id: company._id,
+          name: company.name
+        },
         users: users.map(user => ({
           id: user._id,
           name: user.name,
           email: user.email,
           avatar: user.avatar,
           role: user.role,
-          status: user.lastLogin && (new Date() - new Date(user.lastLogin) < 300000) ? 'online' : 'away'
+          status: user.lastLogin && (new Date() - new Date(user.lastLogin) < 300000) ? 'online' : 'away',
+          lastLogin: user.lastLogin
         }))
       }
     });
