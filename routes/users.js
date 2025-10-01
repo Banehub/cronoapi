@@ -206,13 +206,19 @@ router.put('/:id/avatar',
   })
 );
 
-// @desc    Deactivate user
+// @desc    Delete user permanently
 // @route   DELETE /api/users/:id
 // @access  Private (Admin only)
 router.delete('/:id', authenticateToken, adminOnly, validateObjectId('id'), asyncHandler(async (req, res) => {
+  console.log('=== DELETE USER REQUEST ===');
+  console.log('User ID to delete:', req.params.id);
+  console.log('Admin ID:', req.user._id);
+  console.log('===========================');
+
   const user = await User.findById(req.params.id);
 
   if (!user) {
+    console.log('❌ ERROR: User not found');
     return res.status(404).json({
       success: false,
       message: 'User not found',
@@ -220,25 +226,45 @@ router.delete('/:id', authenticateToken, adminOnly, validateObjectId('id'), asyn
     });
   }
 
-  // Don't allow admin to deactivate themselves
+  // Don't allow admin to delete themselves
   if (req.user._id.toString() === req.params.id) {
+    console.log('❌ ERROR: Cannot delete self');
     return res.status(400).json({
       success: false,
-      message: 'Cannot deactivate your own account',
-      error: 'CANNOT_DEACTIVATE_SELF'
+      message: 'Cannot delete your own account',
+      error: 'CANNOT_DELETE_SELF'
     });
   }
 
-  // Soft delete - deactivate user
-  user.isActive = false;
-  await user.save();
+  // Permanently delete user
+  await User.findByIdAndDelete(req.params.id);
+
+  // Delete user's avatar if exists
+  if (user.avatar) {
+    const fs = require('fs');
+    const path = require('path');
+    const avatarPath = path.join(process.cwd(), user.avatar);
+    try {
+      fs.unlinkSync(avatarPath);
+    } catch (error) {
+      console.error('Error deleting avatar:', error);
+    }
+  }
+
+  // Optional: Delete or reassign user's tickets and conversations
+  // Uncomment if you want to delete related data
+  // await Ticket.deleteMany({ userId: req.params.id });
+  // await Conversation.updateMany(
+  //   { participants: req.params.id },
+  //   { $pull: { participants: req.params.id } }
+  // );
+
+  console.log('✅ User permanently deleted:', user.email);
 
   res.json({
     success: true,
-    message: 'User deactivated successfully',
-    data: {
-      user: user.getPublicProfile()
-    }
+    message: 'User permanently deleted successfully',
+    data: {}
   });
 }));
 

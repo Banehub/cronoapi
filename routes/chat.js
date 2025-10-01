@@ -190,15 +190,18 @@ router.delete('/channels/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    // Soft delete - set isActive to false
-    channel.isActive = false;
-    await channel.save();
+    // Permanently delete the channel
+    await Conversation.findByIdAndDelete(req.params.id);
 
-    console.log('✅ Channel deleted:', channel._id);
+    // Also delete all messages in this channel
+    const Message = require('../models/Message');
+    await Message.deleteMany({ conversationId: req.params.id });
+
+    console.log('✅ Channel permanently deleted:', channel._id);
 
     res.json({
       success: true,
-      message: 'Channel deleted successfully',
+      message: 'Channel permanently deleted successfully',
       data: {}
     });
   } catch (error) {
