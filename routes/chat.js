@@ -67,11 +67,24 @@ router.post('/channels', [
 ], async (req, res) => {
   try {
     console.log('=== CREATE CHANNEL REQUEST ===');
-    console.log('Request Body:', req.body);
+    console.log('Request Body:', JSON.stringify(req.body, null, 2));
+    console.log('User:', req.user ? req.user._id : 'NO USER');
+    console.log('Company:', req.user ? req.user.companyId : 'NO COMPANY');
     console.log('==============================');
+
+    // Check if user is authenticated
+    if (!req.user) {
+      console.log('❌ ERROR: No authenticated user');
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+        error: 'UNAUTHORIZED'
+      });
+    }
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('❌ VALIDATION ERRORS:', errors.array());
       return res.status(400).json({
         success: false,
         message: 'Validation failed',
@@ -89,6 +102,7 @@ router.post('/channels', [
     });
 
     if (existingChannel) {
+      console.log('❌ ERROR: Channel already exists');
       return res.status(400).json({
         success: false,
         message: 'Channel with this name already exists',
@@ -97,12 +111,21 @@ router.post('/channels', [
     }
 
     // Create channel
+    console.log('Creating channel with data:', {
+      title: name,
+      description: description || 'Team-wide announcements and work-based matters',
+      companyId: req.user.companyId,
+      isGroup: true,
+      participants: [req.user._id],
+      createdBy: req.user._id
+    });
+
     const channel = await Conversation.create({
       title: name,
       description: description || 'Team-wide announcements and work-based matters',
       companyId: req.user.companyId,
       isGroup: true,
-      participants: [req.user._id], // Creator is first participant
+      participants: [req.user._id],
       createdBy: req.user._id
     });
 
@@ -121,11 +144,13 @@ router.post('/channels', [
       }
     });
   } catch (error) {
-    console.log('❌ ERROR creating channel:', error.message);
+    console.log('❌ UNEXPECTED ERROR creating channel:', error.message);
+    console.log('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Error creating channel',
-      error: 'INTERNAL_SERVER_ERROR'
+      error: 'INTERNAL_SERVER_ERROR',
+      details: error.message
     });
   }
 });
