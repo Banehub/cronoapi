@@ -155,6 +155,62 @@ router.post('/channels', [
   }
 });
 
+// @route   DELETE /api/chat/channels/:id
+// @desc    Delete a channel
+// @access  Private (Admin or channel creator)
+router.delete('/channels/:id', authenticateToken, async (req, res) => {
+  try {
+    console.log('=== DELETE CHANNEL REQUEST ===');
+    console.log('Channel ID:', req.params.id);
+    console.log('User ID:', req.user._id);
+    console.log('==============================');
+
+    const channel = await Conversation.findOne({
+      _id: req.params.id,
+      companyId: req.user.companyId,
+      isGroup: true
+    });
+
+    if (!channel) {
+      console.log('❌ ERROR: Channel not found');
+      return res.status(404).json({
+        success: false,
+        message: 'Channel not found',
+        error: 'CHANNEL_NOT_FOUND'
+      });
+    }
+
+    // Check permissions: only admin or channel creator can delete
+    if (req.user.role !== 'admin' && channel.createdBy.toString() !== req.user._id.toString()) {
+      console.log('❌ ERROR: Access denied');
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only admin or channel creator can delete this channel.',
+        error: 'ACCESS_DENIED'
+      });
+    }
+
+    // Soft delete - set isActive to false
+    channel.isActive = false;
+    await channel.save();
+
+    console.log('✅ Channel deleted:', channel._id);
+
+    res.json({
+      success: true,
+      message: 'Channel deleted successfully',
+      data: {}
+    });
+  } catch (error) {
+    console.log('❌ ERROR deleting channel:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting channel',
+      error: 'INTERNAL_SERVER_ERROR'
+    });
+  }
+});
+
 // @route   GET /api/chat/online-users
 // @desc    Get online users in the company
 // @access  Private
