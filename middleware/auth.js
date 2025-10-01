@@ -3,7 +3,14 @@ const User = require('../models/User');
 
 // Generate JWT token
 const generateToken = (userId, companyId) => {
-  return jwt.sign({ userId, companyId }, process.env.JWT_SECRET, {
+  const secret = process.env.JWT_SECRET;
+  
+  if (!secret) {
+    console.error('❌ CRITICAL ERROR: JWT_SECRET is not defined in environment variables!');
+    throw new Error('JWT_SECRET is not configured. Please set JWT_SECRET in your environment variables.');
+  }
+  
+  return jwt.sign({ userId, companyId }, secret, {
     expiresIn: process.env.JWT_EXPIRE || '7d'
   });
 };
