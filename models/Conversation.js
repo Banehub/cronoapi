@@ -112,14 +112,15 @@ conversationSchema.pre('save', function(next) {
     this.participants.push(this.createdBy);
   }
   
-  // Ensure minimum 2 participants
-  if (this.participants.length < 2) {
-    return next(new Error('Conversation must have at least 2 participants'));
+  // Validate participant count based on conversation type
+  if (!this.isGroup && this.participants.length < 2) {
+    // Direct messages must have at least 2 participants
+    return next(new Error('Direct message must have at least 2 participants'));
   }
   
-  // Set isGroup based on participant count
-  if (this.participants.length > 2) {
-    this.isGroup = true;
+  // Channels (isGroup: true) can have 1 or more participants
+  if (this.isGroup && this.participants.length < 1) {
+    return next(new Error('Channel must have at least 1 participant'));
   }
   
   next();
