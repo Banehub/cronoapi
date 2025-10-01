@@ -19,6 +19,11 @@ const router = express.Router();
 // @route   GET /api/tickets
 // @access  Private
 router.get('/', authenticateToken, validatePagination, validateSearch, asyncHandler(async (req, res) => {
+  console.log('=== GET TICKETS REQUEST ===');
+  console.log('User ID:', req.user._id);
+  console.log('Query params:', req.query);
+  console.log('===========================');
+
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const skip = (page - 1) * limit;
@@ -80,11 +85,26 @@ router.get('/', authenticateToken, validatePagination, validateSearch, asyncHand
 
   const total = await Ticket.countDocuments(query);
 
+  console.log('✅ Found tickets:', tickets.length, 'Total:', total);
+
   res.json({
     success: true,
     message: 'Tickets retrieved successfully',
     data: {
-      tickets,
+      tickets: tickets.map(ticket => ({
+        id: ticket._id,
+        ticketNumber: ticket.ticketNumber,
+        subject: ticket.subject,
+        description: ticket.description,
+        priority: ticket.priority,
+        status: ticket.status,
+        category: ticket.category,
+        userId: ticket.userId,
+        assignedTo: ticket.assignedTo,
+        createdAt: ticket.createdAt,
+        updatedAt: ticket.updatedAt,
+        dueDate: ticket.dueDate
+      })),
       pagination: {
         current: page,
         pages: Math.ceil(total / limit),
@@ -137,6 +157,11 @@ router.get('/:id', authenticateToken, validateObjectId('id'), asyncHandler(async
 // @route   POST /api/tickets
 // @access  Private
 router.post('/', authenticateToken, validateTicketCreation, asyncHandler(async (req, res) => {
+  console.log('=== CREATE TICKET REQUEST ===');
+  console.log('Request Body:', req.body);
+  console.log('User ID:', req.user._id);
+  console.log('============================');
+
   const ticketData = {
     ...req.body,
     userId: req.user._id,
@@ -146,14 +171,22 @@ router.post('/', authenticateToken, validateTicketCreation, asyncHandler(async (
   const ticket = await Ticket.create(ticketData);
   await ticket.populate('userId', 'name email avatar');
 
-  // Log the ticket creation in the terminal [[memory:669458]]
-  console.log(`New ticket created: ${ticket.ticketNumber} by ${req.user.name} (${req.user.email})`);
+  console.log(`✅ New ticket created: ${ticket.ticketNumber} by ${req.user.name} (${req.user.email})`);
 
   res.status(201).json({
     success: true,
     message: 'Ticket created successfully',
     data: {
-      ticket
+      ticket: {
+        id: ticket._id,
+        ticketNumber: ticket.ticketNumber,
+        subject: ticket.subject,
+        description: ticket.description,
+        priority: ticket.priority,
+        status: ticket.status,
+        category: ticket.category,
+        createdAt: ticket.createdAt
+      }
     }
   });
 }));
@@ -407,28 +440,53 @@ router.put('/:id/assign', authenticateToken, supportOrAdmin, validateObjectId('i
 }));
 
 // @desc    Get ticket statistics
-// @route   GET /api/tickets/stats
+// @route   GET /api/tickets/stats/overview
 // @access  Private
-router.get('/stats', authenticateToken, asyncHandler(async (req, res) => {
-  let matchQuery = { companyId: req.user.companyId };
+router.get('/stats/overview', authenticateToken, asyncHandler(async (req, res) => {
+  console.log('=== GET TICKET STATS REQUEST ===');
+  console.log('User ID:', req.user._id);
+  console.log('Company ID:', req.user.companyId);
+  console.log('================================');
+
+  let query = { companyId: req.user.companyId };
 
   // Filter by user role
   if (req.user.role === 'user') {
-    matchQuery.userId = req.user._id;
+    query.userId = req.user._id;
   } else if (req.user.role === 'support') {
-    matchQuery.$or = [
+    query.$or = [
       { assignedTo: req.user._id },
-      { assignedTo: null }
+      { assignedTo: null },
+      { userId: req.user._id }
     ];
   }
 
-  const stats = await Ticket.getTicketStats(req.user.role === 'user' ? req.user._id : null);
+  // Get counts
+  const totalCount = await Ticket.countDocuments(query);
+  const openCount = await Ticket.countDocuments({ ...query, status: { $in: ['open', 'in-progress'] } });
+  const closedCount = await Ticket.countDocuments({ ...query, status: { $in: ['resolved', 'closed'] } });
+  
+  // Priority breakdown
+  const highPriority = await Ticket.countDocuments({ ...query, priority: 'high' });
+  const mediumPriority = await Ticket.countDocuments({ ...query, priority: 'medium' });
+  const lowPriority = await Ticket.countDocuments({ ...query, priority: 'low' });
+
+  console.log('✅ Stats calculated:', { totalCount, openCount, closedCount });
 
   res.json({
     success: true,
     message: 'Ticket statistics retrieved successfully',
     data: {
-      stats
+      stats: {
+        total: totalCount,
+        open: openCount,
+        closed: closedCount,
+        byPriority: {
+          high: highPriority,
+          medium: mediumPriority,
+          low: lowPriority
+        }
+      }
     }
   });
 }));

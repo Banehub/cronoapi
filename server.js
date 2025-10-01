@@ -58,6 +58,7 @@ app.use('/uploads', express.static('uploads'));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/companies', companyRoutes);
+app.use('/api/chat', require('./routes/chat')); // Chat routes (includes auth)
 app.use('/api/tickets', authenticateToken, ticketRoutes);
 app.use('/api/conversations', authenticateToken, conversationRoutes);
 app.use('/api/messages', authenticateToken, messageRoutes);
