@@ -562,5 +562,143 @@ router.post('/messages', [
   }
 });
 
+// @route   PUT /api/chat/messages/:id
+// @desc    Edit a message (only sender can edit)
+// @access  Private
+router.put('/messages/:id', [
+  authenticateToken,
+  body('text')
+    .trim()
+    .isLength({ min: 1, max: 5000 })
+    .withMessage('Message must be between 1 and 5000 characters')
+], async (req, res) => {
+  try {
+    console.log('=== EDIT MESSAGE REQUEST ===');
+    console.log('Message ID:', req.params.id);
+    console.log('User ID:', req.user._id);
+    console.log('New text:', req.body.text);
+    console.log('===========================');
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.log('❌ VALIDATION ERRORS:', errors.array());
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const message = await Message.findById(req.params.id);
+
+    if (!message) {
+      console.log('❌ ERROR: Message not found');
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found',
+        error: 'MESSAGE_NOT_FOUND'
+      });
+    }
+
+    // Check if user is the sender
+    if (message.senderId.toString() !== req.user._id.toString()) {
+      console.log('❌ ERROR: User is not the sender');
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You can only edit your own messages.',
+        error: 'ACCESS_DENIED'
+      });
+    }
+
+    // Update message
+    message.text = req.body.text;
+    message.editedAt = new Date();
+    await message.save();
+
+    // Populate sender info
+    await message.populate('senderId', 'name email avatar');
+
+    console.log('✅ Message edited successfully:', message._id);
+
+    res.json({
+      success: true,
+      message: 'Message edited successfully',
+      data: {
+        message: {
+          id: message._id,
+          text: message.text,
+          sender: {
+            id: message.senderId._id,
+            name: message.senderId.name,
+            email: message.senderId.email,
+            avatar: message.senderId.avatar
+          },
+          createdAt: message.createdAt,
+          editedAt: message.editedAt,
+          isEdited: true
+        }
+      }
+    });
+  } catch (error) {
+    console.log('❌ ERROR editing message:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error editing message',
+      error: 'INTERNAL_SERVER_ERROR'
+    });
+  }
+});
+
+// @route   DELETE /api/chat/messages/:id
+// @desc    Delete a message (only sender can delete)
+// @access  Private
+router.delete('/messages/:id', authenticateToken, async (req, res) => {
+  try {
+    console.log('=== DELETE MESSAGE REQUEST ===');
+    console.log('Message ID:', req.params.id);
+    console.log('User ID:', req.user._id);
+    console.log('==============================');
+
+    const message = await Message.findById(req.params.id);
+
+    if (!message) {
+      console.log('❌ ERROR: Message not found');
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found',
+        error: 'MESSAGE_NOT_FOUND'
+      });
+    }
+
+    // Check if user is the sender
+    if (message.senderId.toString() !== req.user._id.toString()) {
+      console.log('❌ ERROR: User is not the sender');
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You can only delete your own messages.',
+        error: 'ACCESS_DENIED'
+      });
+    }
+
+    // Permanently delete message
+    await Message.findByIdAndDelete(req.params.id);
+
+    console.log('✅ Message permanently deleted:', message._id);
+
+    res.json({
+      success: true,
+      message: 'Message permanently deleted successfully',
+      data: {}
+    });
+  } catch (error) {
+    console.log('❌ ERROR deleting message:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting message',
+      error: 'INTERNAL_SERVER_ERROR'
+    });
+  }
+});
+
 module.exports = router;
 
