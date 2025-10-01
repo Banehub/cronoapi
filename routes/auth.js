@@ -38,9 +38,10 @@ router.post('/register', [
       return true;
     }),
   body('companyName')
+    .optional()
     .trim()
-    .notEmpty()
-    .withMessage('Company name is required')
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Company name must be between 2 and 100 characters')
 ], asyncHandler(async (req, res) => {
   try {
     // Log what we receive from frontend
@@ -62,28 +63,60 @@ router.post('/register', [
 
   const { firstName, lastName, email, password, companyName } = req.body;
 
-  // Find company by name
-  console.log('🔍 Looking for company with name:', companyName);
-  const company = await Company.findOne({ 
-    name: { $regex: new RegExp(`^${companyName}$`, 'i') } 
-  });
+  let company;
 
-  if (!company) {
-    console.log('❌ ERROR: Company not found with name:', companyName);
-    return res.status(400).json({
-      success: false,
-      message: 'Company not found with that name',
-      error: 'COMPANY_NOT_FOUND'
+  // If companyName is provided, find existing company
+  if (companyName) {
+    console.log('🔍 Looking for existing company with name:', companyName);
+    company = await Company.findOne({ 
+      name: { $regex: new RegExp(`^${companyName}$`, 'i') } 
     });
-  }
 
-  if (!company.isActive) {
-    console.log('❌ ERROR: Company is inactive:', companyName);
-    return res.status(400).json({
-      success: false,
-      message: 'Company is inactive',
-      error: 'COMPANY_INACTIVE'
+    if (!company) {
+      console.log('❌ ERROR: Company not found with name:', companyName);
+      return res.status(400).json({
+        success: false,
+        message: 'Company not found with that name',
+        error: 'COMPANY_NOT_FOUND'
+      });
+    }
+
+    if (!company.isActive) {
+      console.log('❌ ERROR: Company is inactive:', companyName);
+      return res.status(400).json({
+        success: false,
+        message: 'Company is inactive',
+        error: 'COMPANY_INACTIVE'
+      });
+    }
+  } else {
+    // No company provided - create a personal company for the user
+    const personalCompanyName = `${firstName} ${lastName}'s Company`;
+    console.log('✅ Creating personal company:', personalCompanyName);
+    
+    // Check if personal company name already exists
+    const existingCompany = await Company.findOne({
+      name: { $regex: new RegExp(`^${personalCompanyName}$`, 'i') }
     });
+
+    if (existingCompany) {
+      // Add a random number to make it unique
+      const uniqueName = `${personalCompanyName} ${Date.now()}`;
+      console.log('⚠️ Company name exists, using unique name:', uniqueName);
+      company = await Company.create({
+        name: uniqueName,
+        email: email.toLowerCase(),
+        password: password, // Same password as user for simplicity
+      });
+    } else {
+      company = await Company.create({
+        name: personalCompanyName,
+        email: email.toLowerCase(),
+        password: password, // Same password as user for simplicity
+      });
+    }
+
+    console.log('✅ Personal company created:', company._id);
   }
 
   // Check if user already exists in this company
