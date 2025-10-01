@@ -37,9 +37,10 @@ router.post('/register', [
       }
       return true;
     }),
-  body('companyId')
-    .isMongoId()
-    .withMessage('Valid company ID is required')
+  body('companyName')
+    .trim()
+    .notEmpty()
+    .withMessage('Company name is required')
 ], asyncHandler(async (req, res) => {
   try {
     // Log what we receive from frontend
@@ -59,33 +60,36 @@ router.post('/register', [
     });
   }
 
-  const { firstName, lastName, email, password, companyId } = req.body;
+  const { firstName, lastName, email, password, companyName } = req.body;
 
-  
-  if (!companyId) {
-    console.log('❌ ERROR: Company ID is required');
+  // Find company by name
+  console.log('🔍 Looking for company with name:', companyName);
+  const company = await Company.findOne({ 
+    name: { $regex: new RegExp(`^${companyName}$`, 'i') } 
+  });
+
+  if (!company) {
+    console.log('❌ ERROR: Company not found with name:', companyName);
     return res.status(400).json({
       success: false,
-      message: 'Company ID is required',
-      error: 'COMPANY_ID_REQUIRED'
+      message: 'Company not found with that name',
+      error: 'COMPANY_NOT_FOUND'
     });
   }
 
-  // Check if company exists and is active
-  const company = await Company.findById(companyId);
-  if (!company || !company.isActive) {
-    console.log('❌ ERROR: Invalid or inactive company:', companyId);
+  if (!company.isActive) {
+    console.log('❌ ERROR: Company is inactive:', companyName);
     return res.status(400).json({
       success: false,
-      message: 'Invalid or inactive company',
-      error: 'INVALID_COMPANY'
+      message: 'Company is inactive',
+      error: 'COMPANY_INACTIVE'
     });
   }
 
   // Check if user already exists in this company
-  const existingUser = await User.findOne({ email: email.toLowerCase(), companyId });
+  const existingUser = await User.findOne({ email: email.toLowerCase(), companyId: company._id });
   if (existingUser) {
-    console.log('❌ ERROR: User already exists with email:', email, 'in company:', companyId);
+    console.log('❌ ERROR: User already exists with email:', email, 'in company:', company.name);
     return res.status(400).json({
       success: false,
       message: 'User already exists with this email in this company',
@@ -94,7 +98,7 @@ router.post('/register', [
   }
 
   // Check company user limit
-  const userCount = await User.countDocuments({ companyId, isActive: true });
+  const userCount = await User.countDocuments({ companyId: company._id, isActive: true });
   if (userCount >= company.settings.maxUsers) {
     console.log('❌ ERROR: Company user limit reached. Current:', userCount, 'Max:', company.settings.maxUsers);
     return res.status(400).json({
@@ -108,20 +112,21 @@ router.post('/register', [
   console.log('✅ Creating user with data:', {
     name: `${firstName} ${lastName}`,
     email: email.toLowerCase(),
-    companyId
+    companyId: company._id,
+    companyName: company.name
   });
   
   const user = await User.create({
     name: `${firstName} ${lastName}`,
     email: email.toLowerCase(),
     password,
-    companyId
+    companyId: company._id
   });
 
   console.log('✅ User created successfully:', user._id);
 
   // Generate token
-  const token = generateToken(user._id, companyId);
+  const token = generateToken(user._id, company._id);
 
   // Get user without password
   const userProfile = user.getPublicProfile();
@@ -129,7 +134,8 @@ router.post('/register', [
   console.log('✅ Registration successful for user:', user.email);
   console.log('=== REGISTRATION RESPONSE ===');
   console.log('User ID:', user._id);
-  console.log('Company ID:', companyId);
+  console.log('Company ID:', company._id);
+  console.log('Company Name:', company.name);
   console.log('Token generated:', token ? 'Yes' : 'No');
   console.log('============================');
 
