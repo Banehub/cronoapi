@@ -41,7 +41,7 @@ router.post('/register', [
     .optional()
     .trim()
     .isLength({ min: 2, max: 100 })
-    .withMessage('Company name must be between 2 and 100 characters')
+    .withMessage('Company name must be between 2 and 100 characters'),
 ], asyncHandler(async (req, res) => {
   try {
     // Log what we receive from frontend
@@ -64,33 +64,37 @@ router.post('/register', [
   const { firstName, lastName, email, password, companyName } = req.body;
 
   let company;
+  let userRole = 'user';
 
-  // If companyName is provided, find existing company
+  // If companyName is provided, create a new company with this user as admin
   if (companyName) {
-    console.log('🔍 Looking for existing company with name:', companyName);
-    company = await Company.findOne({ 
-      name: { $regex: new RegExp(`^${companyName}$`, 'i') } 
+    console.log('✅ Creating company:', companyName);
+    
+    // Check if company name already exists
+    const existingCompany = await Company.findOne({
+      name: { $regex: new RegExp(`^${companyName}$`, 'i') }
     });
 
-    if (!company) {
-      console.log('❌ ERROR: Company not found with name:', companyName);
+    if (existingCompany) {
+      console.log('❌ ERROR: Company name already exists:', companyName);
       return res.status(400).json({
         success: false,
-        message: 'Company not found with that name',
-        error: 'COMPANY_NOT_FOUND'
+        message: 'Company name already exists',
+        error: 'COMPANY_EXISTS'
       });
     }
 
-    if (!company.isActive) {
-      console.log('❌ ERROR: Company is inactive:', companyName);
-      return res.status(400).json({
-        success: false,
-        message: 'Company is inactive',
-        error: 'COMPANY_INACTIVE'
-      });
-    }
+    // Create the company
+    company = await Company.create({
+      name: companyName,
+      email: email.toLowerCase(),
+      password: password,
+    });
+
+    console.log('✅ Company created:', company._id, '- User will be admin');
+    userRole = 'admin'; // User becomes admin of their company
   } else {
-    // No company provided - create a personal company for the user
+    // No company name - create a personal company
     const personalCompanyName = `${firstName} ${lastName}'s Company`;
     console.log('✅ Creating personal company:', personalCompanyName);
     
@@ -100,23 +104,24 @@ router.post('/register', [
     });
 
     if (existingCompany) {
-      // Add a random number to make it unique
+      // Add a timestamp to make it unique
       const uniqueName = `${personalCompanyName} ${Date.now()}`;
       console.log('⚠️ Company name exists, using unique name:', uniqueName);
       company = await Company.create({
         name: uniqueName,
         email: email.toLowerCase(),
-        password: password, // Same password as user for simplicity
+        password: password,
       });
     } else {
       company = await Company.create({
         name: personalCompanyName,
         email: email.toLowerCase(),
-        password: password, // Same password as user for simplicity
+        password: password,
       });
     }
 
     console.log('✅ Personal company created:', company._id);
+    userRole = 'admin'; // User is admin of their personal company too
   }
 
   // Check if user already exists in this company
@@ -145,6 +150,7 @@ router.post('/register', [
   console.log('✅ Creating user with data:', {
     name: `${firstName} ${lastName}`,
     email: email.toLowerCase(),
+    role: userRole,
     companyId: company._id,
     companyName: company.name
   });
@@ -153,6 +159,7 @@ router.post('/register', [
     name: `${firstName} ${lastName}`,
     email: email.toLowerCase(),
     password,
+    role: userRole,
     companyId: company._id
   });
 

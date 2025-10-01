@@ -6,8 +6,136 @@ const Company = require('../models/Company');
 const { authenticateCompany, generateCompanyToken, checkUserLimit } = require('../middleware/companyAuth');
 const { authenticate } = require('../middleware/auth');
 
+// @route   POST /api/companies/register-with-admin
+// @desc    Register a new company with admin user
+// @access  Public
+router.post('/register-with-admin', [
+  body('companyName')
+    .trim()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Company name must be between 2 and 100 characters'),
+  body('firstName')
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('First name must be between 2 and 50 characters'),
+  body('lastName')
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Last name must be between 2 and 50 characters'),
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email'),
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters long'),
+  body('confirmPassword')
+    .custom((value, { req }) => {
+      if (value !== req.body.password) {
+        throw new Error('Password confirmation does not match password');
+      }
+      return true;
+    })
+], async (req, res) => {
+  try {
+    // Log what we receive from frontend
+    console.log('=== COMPANY + ADMIN REGISTRATION REQUEST ===');
+    console.log('Request Body:', JSON.stringify(req.body, null, 2));
+    console.log('==========================================');
+
+    // Check for validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.log('❌ VALIDATION ERRORS:', errors.array());
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { companyName, firstName, lastName, email, password } = req.body;
+
+    // Check if company already exists
+    const existingCompany = await Company.findOne({
+      $or: [
+        { email: email.toLowerCase() },
+        { name: { $regex: new RegExp(`^${companyName}$`, 'i') } }
+      ]
+    });
+
+    if (existingCompany) {
+      console.log('❌ ERROR: Company already exists with email or name:', { email, companyName });
+      return res.status(400).json({
+        success: false,
+        message: 'Company with this email or name already exists'
+      });
+    }
+
+    // Create company
+    console.log('✅ Creating company with data:', { companyName, email: email.toLowerCase() });
+    
+    const company = new Company({
+      name: companyName,
+      email: email.toLowerCase(),
+      password
+    });
+
+    await company.save();
+    console.log('✅ Company created successfully:', company._id);
+
+    // Create admin user
+    const User = require('../models/User');
+    console.log('✅ Creating admin user with data:', {
+      name: `${firstName} ${lastName}`,
+      email: email.toLowerCase(),
+      role: 'admin',
+      companyId: company._id
+    });
+
+    const adminUser = await User.create({
+      name: `${firstName} ${lastName}`,
+      email: email.toLowerCase(),
+      password,
+      role: 'admin',
+      companyId: company._id
+    });
+
+    console.log('✅ Admin user created successfully:', adminUser._id);
+
+    // Generate token
+    const { generateToken } = require('../middleware/auth');
+    const token = generateToken(adminUser._id, company._id);
+
+    console.log('✅ Company + Admin registration successful');
+    console.log('=== REGISTRATION RESPONSE ===');
+    console.log('Company ID:', company._id);
+    console.log('Company Name:', company.name);
+    console.log('Admin User ID:', adminUser._id);
+    console.log('Token generated:', token ? 'Yes' : 'No');
+    console.log('============================');
+
+    res.status(201).json({
+      success: true,
+      message: 'Company and admin user created successfully',
+      data: {
+        company: company.getPublicProfile(),
+        user: adminUser.getPublicProfile(),
+        token
+      }
+    });
+  } catch (error) {
+    console.log('❌ UNEXPECTED ERROR in company+admin registration:', error.message);
+    console.log('Error stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during company registration'
+    });
+  }
+});
+
 // @route   POST /api/companies/register
-// @desc    Register a new company
+// @desc    Register a new company (company only, no user)
 // @access  Public
 router.post('/register', [
   body('companyName')
