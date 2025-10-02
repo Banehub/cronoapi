@@ -17,13 +17,30 @@ router.get('/channels', authenticateToken, async (req, res) => {
     console.log('===========================');
 
     // Get all group conversations (channels) for the company
-    const channels = await Conversation.find({
+    let channels = await Conversation.find({
       companyId: req.user.companyId,
       isGroup: true,
       isActive: true
     })
     .select('title description participants unreadCount lastMessageAt')
     .sort('-lastMessageAt');
+
+    // If no channels exist, create a default "general" channel
+    if (channels.length === 0) {
+      console.log('No channels found, creating default "general" channel');
+      
+      const generalChannel = await Conversation.create({
+        title: 'general',
+        description: 'Team-wide announcements and work-based matters',
+        companyId: req.user.companyId,
+        isGroup: true,
+        participants: [req.user._id],
+        createdBy: req.user._id
+      });
+
+      channels = [generalChannel];
+      console.log('✅ Default "general" channel created');
+    }
 
     console.log('✅ Found channels:', channels.length);
 
@@ -705,6 +722,51 @@ router.delete('/messages/:id', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error deleting message',
+      error: 'INTERNAL_SERVER_ERROR'
+    });
+  }
+});
+
+// @route   GET /api/chat/users
+// @desc    Get all users in the company (for chat)
+// @access  Private
+router.get('/users', authenticateToken, async (req, res) => {
+  try {
+    console.log('=== GET COMPANY USERS REQUEST ===');
+    console.log('User ID:', req.user._id);
+    console.log('Company ID:', req.user.companyId);
+    console.log('==================================');
+
+    // Get all active users in the same company
+    const users = await User.find({
+      companyId: req.user.companyId,
+      isActive: true
+    })
+    .select('name email avatar role lastLogin')
+    .sort('name');
+
+    console.log('✅ Found users in company:', users.length);
+
+    res.json({
+      success: true,
+      message: 'Company users retrieved successfully',
+      data: {
+        users: users.map(user => ({
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar,
+          role: user.role,
+          lastLogin: user.lastLogin,
+          isOnline: user.lastLogin && (new Date() - user.lastLogin) < 5 * 60 * 1000 // Online if last login within 5 minutes
+        }))
+      }
+    });
+  } catch (error) {
+    console.log('❌ ERROR getting company users:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Error retrieving company users',
       error: 'INTERNAL_SERVER_ERROR'
     });
   }

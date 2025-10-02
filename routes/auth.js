@@ -42,6 +42,12 @@ router.post('/register', [
     .trim()
     .isLength({ min: 2, max: 100 })
     .withMessage('Company name must be between 2 and 100 characters'),
+  body('inviteCode')
+    .optional()
+    .trim()
+    .toUpperCase()
+    .isLength({ min: 8, max: 8 })
+    .withMessage('Invite code must be 8 characters'),
 ], asyncHandler(async (req, res) => {
   try {
     // Log what we receive from frontend
@@ -61,13 +67,44 @@ router.post('/register', [
     });
   }
 
-  const { firstName, lastName, email, password, companyName } = req.body;
+  const { firstName, lastName, email, password, companyName, inviteCode } = req.body;
 
   let company;
   let userRole = 'user';
 
+  // If invite code is provided, validate and join that company
+  if (inviteCode) {
+    console.log('🎫 Validating invite code:', inviteCode);
+    
+    const InviteCode = require('../models/InviteCode');
+    const invite = await InviteCode.findOne({ code: inviteCode.toUpperCase() })
+      .populate('companyId');
+
+    if (!invite) {
+      console.log('❌ ERROR: Invalid invite code');
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid invite code',
+        error: 'INVALID_INVITE_CODE'
+      });
+    }
+
+    if (!invite.isValid()) {
+      console.log('❌ ERROR: Invite code expired or max uses reached');
+      return res.status(400).json({
+        success: false,
+        message: 'Invite code has expired or reached maximum uses',
+        error: 'INVITE_CODE_EXPIRED'
+      });
+    }
+
+    company = invite.companyId;
+    userRole = 'user'; // Invited users are regular users, not admins
+
+    console.log('✅ Valid invite code. Joining company:', company.name);
+  }
   // If companyName is provided, create a new company with this user as admin
-  if (companyName) {
+  else if (companyName) {
     console.log('✅ Creating company:', companyName);
     
     // Check if company name already exists
@@ -164,6 +201,16 @@ router.post('/register', [
   });
 
   console.log('✅ User created successfully:', user._id);
+
+  // If user registered with invite code, mark it as used
+  if (inviteCode) {
+    const InviteCode = require('../models/InviteCode');
+    const invite = await InviteCode.findOne({ code: inviteCode.toUpperCase() });
+    if (invite) {
+      await invite.markAsUsed(user._id);
+      console.log('✅ Invite code marked as used');
+    }
+  }
 
   // Generate token
   const token = generateToken(user._id, company._id);
